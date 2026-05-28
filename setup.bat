@@ -9,24 +9,54 @@ echo ============================================
 echo.
 
 :: ── Node.js ──────────────────────────────────
+echo [1/4] Verification de Node.js...
+
+:: Cherche node dans le PATH courant
 where node >nul 2>&1
-if %errorlevel% neq 0 (
-  echo [1/4] Node.js non detecte. Telechargement...
-  curl -L "https://nodejs.org/dist/v22.13.0/node-v22.13.0-x64.msi" -o "%TEMP%\node_installer.msi"
-  msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
-  del "%TEMP%\node_installer.msi"
-  echo [1/4] Node.js installe.
-) else (
-  echo [1/4] Node.js detecte.
+if %errorlevel% equ 0 (
+  echo [1/4] Node.js detecte dans le PATH.
+  goto :NPM_INSTALL
 )
 
+:: Cherche node.exe dans les emplacements Windows courants
+set "NODE_FOUND=0"
+for %%P in (
+  "%ProgramFiles%\nodejs\node.exe"
+  "%ProgramFiles(x86)%\nodejs\node.exe"
+  "%LOCALAPPDATA%\Programs\nodejs\node.exe"
+  "%APPDATA%\npm\node.exe"
+) do (
+  if exist %%P (
+    set "NODE_FOUND=1"
+    for %%D in (%%P) do set "NODEJS_DIR=%%~dpD"
+    echo [1/4] Node.js trouve dans !NODEJS_DIR!
+  )
+)
+
+if "!NODE_FOUND!"=="1" goto :NPM_INSTALL
+
+:: Pas trouve — telechargement et installation
+echo [1/4] Node.js non detecte. Telechargement en cours...
+curl -L "https://nodejs.org/dist/v22.13.0/node-v22.13.0-x64.msi" -o "%TEMP%\node_installer.msi"
+if %errorlevel% neq 0 (
+  echo ERREUR: Impossible de telecharger Node.js. Verifie ta connexion internet.
+  pause
+  exit /b 1
+)
+msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
+del "%TEMP%\node_installer.msi" >nul 2>&1
+echo [1/4] Node.js installe.
+
+:NPM_INSTALL
 :: ── npm install ───────────────────────────────
-:: Rafraichit le PATH depuis le registre pour trouver npm meme apres
-:: une installation fraiche de Node.js dans la meme session CMD
+:: PowerShell relit le PATH depuis le registre Windows — trouve npm
+:: peu importe ou Node.js est installe, et meme apres une install fraiche
 echo [2/4] Installation des dependances (Electron + Express)...
 powershell -NoProfile -Command "$env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User'); npm install; exit $LASTEXITCODE"
 if %errorlevel% neq 0 (
+  echo.
   echo ERREUR: npm install a echoue.
+  echo Essaie de fermer cette fenetre et de relancer setup.bat.
   pause
   exit /b 1
 )
@@ -36,6 +66,11 @@ echo [2/4] Dependances installees.
 if not exist "%~dp0yt-dlp.exe" (
   echo [3/4] Telechargement de yt-dlp...
   curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -o "%~dp0yt-dlp.exe"
+  if %errorlevel% neq 0 (
+    echo ERREUR: Impossible de telecharger yt-dlp.
+    pause
+    exit /b 1
+  )
   echo [3/4] yt-dlp installe.
 ) else (
   echo [3/4] yt-dlp deja present.
@@ -43,14 +78,19 @@ if not exist "%~dp0yt-dlp.exe" (
 
 :: ── ffmpeg ───────────────────────────────────
 if not exist "%~dp0bin\ffmpeg.exe" (
-  echo [4/4] Telechargement de ffmpeg...
+  echo [4/4] Telechargement de ffmpeg ^(peut prendre 1-2 min^)...
   mkdir "%~dp0bin" 2>nul
   curl -L "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -o "%TEMP%\ffmpeg.zip"
-  powershell -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg_extracted' -Force"
-  for /r "%TEMP%\ffmpeg_extracted" %%f in (ffmpeg.exe) do copy "%%f" "%~dp0bin\ffmpeg.exe" >nul
+  if %errorlevel% neq 0 (
+    echo ERREUR: Impossible de telecharger ffmpeg.
+    pause
+    exit /b 1
+  )
+  powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg_extracted' -Force"
+  for /r "%TEMP%\ffmpeg_extracted" %%f in (ffmpeg.exe)  do copy "%%f" "%~dp0bin\ffmpeg.exe"  >nul
   for /r "%TEMP%\ffmpeg_extracted" %%f in (ffprobe.exe) do copy "%%f" "%~dp0bin\ffprobe.exe" >nul
-  del "%TEMP%\ffmpeg.zip"
-  rmdir /s /q "%TEMP%\ffmpeg_extracted"
+  del /f /q "%TEMP%\ffmpeg.zip" >nul 2>&1
+  rmdir /s /q "%TEMP%\ffmpeg_extracted" >nul 2>&1
   echo [4/4] ffmpeg installe.
 ) else (
   echo [4/4] ffmpeg deja present.
