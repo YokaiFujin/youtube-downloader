@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Downloader</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #2e2e2e;
+      --accent: #ff0000;
+      --accent-hover: #cc0000;
+      --text: #f1f1f1;
+      --text-muted: #aaa;
+      --green: #2ecc71;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--text-muted); margin-top: 6px; font-size: 0.9rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 10px;
+    }
+    .url-row input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .url-row input:focus { border-color: var(--accent); }
+    .url-row input::placeholder { color: var(--text-muted); }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.secondary:hover:not(:disabled) { background: var(--border); }
+    button.green { background: #27ae60; }
+    button.green:hover:not(:disabled) { background: #219a52; }
+
+    #preview {
+      display: none;
+      margin-top: 20px;
+      background: var(--surface2);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .preview-inner {
+      display: flex;
+      gap: 14px;
+      padding: 14px;
+      align-items: center;
+    }
+    .thumb-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .thumb-wrap img {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+    }
+    .duration-badge {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .preview-meta { flex: 1; min-width: 0; }
+    .preview-meta h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+    }
+    .preview-meta p {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: 4px;
+    }
+
+    .options {
+      display: none;
+      padding: 14px;
+      border-top: 1px solid var(--border);
+      gap: 12px;
+      flex-direction: column;
+    }
+    .options-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .format-btn {
+      flex: 1;
+      min-width: 100px;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .format-btn:hover { border-color: #555; }
+    .format-btn.active { border-color: var(--accent); color: var(--accent); }
+    .format-btn .fmt-label { font-size: 1.1rem; }
+    .format-btn .fmt-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+    select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      cursor: pointer;
+      flex: 1;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .dl-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #progress-section {
+      display: none;
+      margin-top: 20px;
+    }
+    .progress-bar-wrap {
+      background: var(--surface2);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .log-box {
+      margin-top: 10px;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      color: var(--text-muted);
+      max-height: 100px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+
+    #result-section {
+      display: none;
+      margin-top: 16px;
+      background: #0f2a1a;
+      border: 1px solid #1a5c33;
+      border-radius: 10px;
+      padding: 16px 20px;
+      align-items: center;
+      gap: 14px;
+    }
+    #result-section .icon { font-size: 1.6rem; }
+    #result-section .msg { flex: 1; }
+    #result-section .msg strong { color: var(--green); font-size: 0.95rem; }
+    #result-section .msg p { color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
+
+    #error-msg {
+      display: none;
+      margin-top: 12px;
+      background: #2a0f0f;
+      border: 1px solid #5c1a1a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #f88;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      margin-top: 40px;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+    footer a { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>YouTube <span>Downloader</span></h1>
+  <p>Télécharge des vidéos en MP3 ou MP4 — 100% local, aucune limite</p>
+</header>
+
+<div class="card">
+  <div class="url-row">
+    <input type="text" id="url-input" placeholder="Colle une URL YouTube…" autocomplete="off" spellcheck="false">
+    <button id="info-btn">Analyser</button>
+  </div>
+
+  <div id="preview">
+    <div class="preview-inner">
+      <div class="thumb-wrap">
+        <img id="thumb" src="" alt="thumbnail">
+        <span class="duration-badge" id="duration"></span>
+      </div>
+      <div class="preview-meta">
+        <h3 id="vid-title"></h3>
+        <p id="vid-channel"></p>
+      </div>
+    </div>
+
+    <div class="options" id="options">
+      <div class="options-row">
+        <div class="format-btn active" id="btn-mp4" onclick="selectFormat('mp4')">
+          <div class="fmt-label">MP4</div>
+          <div class="fmt-desc">Vidéo + Audio</div>
+        </div>
+        <div class="format-btn" id="btn-mp3" onclick="selectFormat('mp3')">
+          <div class="fmt-label">MP3</div>
+          <div class="fmt-desc">Audio uniquement</div>
+        </div>
+      </div>
+
+      <div class="dl-row">
+        <select id="quality-select">
+          <option value="best">Meilleure qualité disponible</option>
+        </select>
+        <button class="green" id="dl-btn" onclick="startDownload()">⬇ Télécharger</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="progress-section">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="progress-info">
+      <span id="progress-pct">0%</span>
+      <span id="progress-speed"></span>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <div id="error-msg"></div>
+</div>
+
+<div id="result-section">
+  <div class="icon">✅</div>
+  <div class="msg">
+    <strong>Téléchargement terminé !</strong>
+    <p id="result-filename"></p>
+  </div>
+  <button class="green" id="save-btn" style="padding:10px 16px" onclick="saveFile()">💾 Enregistrer dans Téléchargements</button>
+</div>
+
+<footer>
+  Propulsé par <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> + ffmpeg &nbsp;·&nbsp; 100% local
+</footer>
+
+<script>
+  let selectedFormat = 'mp4';
+  let videoHeights = [];
+  let currentEventSource = null;
+  let pendingFileId = null;
+  let pendingFilename = null;
+
+  const urlInput = document.getElementById('url-input');
+  const infoBtn = document.getElementById('info-btn');
+
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchInfo(); });
+  infoBtn.addEventListener('click', fetchInfo);
+
+  function selectFormat(fmt) {
+    selectedFormat = fmt;
+    document.getElementById('btn-mp4').classList.toggle('active', fmt === 'mp4');
+    document.getElementById('btn-mp3').classList.toggle('active', fmt === 'mp3');
+    updateQualitySelect();
+  }
+
+  function updateQualitySelect() {
+    const sel = document.getElementById('quality-select');
+    sel.innerHTML = '';
+    if (selectedFormat === 'mp3') {
+      sel.innerHTML = '<option value="mp3">Meilleure qualité audio (320kbps)</option>';
+    } else {
+      sel.innerHTML = '<option value="best">Meilleure qualité disponible</option>';
+      const labels = { 2160: '4K (2160p)', 1440: '2K (1440p)', 1080: 'Full HD (1080p)', 720: 'HD (720p)', 480: '480p', 360: '360p' };
+      videoHeights.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = labels[h] || `${h}p`;
+        sel.appendChild(opt);
+      });
+    }
+  }
+
+  async function fetchInfo() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    resetUI();
+    infoBtn.disabled = true;
+    infoBtn.innerHTML = '<span class="spinner"></span>Analyse…';
+
+    try {
+      const res = await fetch('/api/info?url=' + encodeURIComponent(url));
+      const data = await res.json();
+
+      if (!res.ok) { showError(data.error || 'Erreur inconnue'); return; }
+
+      document.getElementById('thumb').src = data.thumbnail || '';
+      document.getElementById('duration').textContent = data.duration_str || '';
+      document.getElementById('vid-title').textContent = data.title || '';
+      document.getElementById('vid-channel').textContent = data.channel || '';
+
+      videoHeights = data.heights || [];
+      updateQualitySelect();
+
+      document.getElementById('preview').style.display = 'block';
+      document.getElementById('options').style.display = 'flex';
+    } catch (e) {
+      showError('Impossible de contacter le serveur.');
+    } finally {
+      infoBtn.disabled = false;
+      infoBtn.textContent = 'Analyser';
+    }
+  }
+
+  function startDownload() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
+
+    const fmt = selectedFormat;
+    const qualitySel = document.getElementById('quality-select');
+    const quality = fmt === 'mp3' ? 'mp3' : (qualitySel.value || 'best');
+
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('result-section').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('log-box').textContent = '';
+    setProgress(0);
+
+    document.getElementById('dl-btn').disabled = true;
+    document.getElementById('info-btn').disabled = true;
+
+    const params = new URLSearchParams({ url, format: fmt, quality });
+    const es = new EventSource('/api/download?' + params);
+    currentEventSource = es;
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'progress') {
+        setProgress(data.percent);
+        if (data.speed) document.getElementById('progress-speed').textContent = data.speed;
+      } else if (data.type === 'log') {
+        document.getElementById('log-box').textContent = data.message;
+      } else if (data.type === 'done') {
+        setProgress(100);
+        es.close();
+        pendingFileId = data.fileId;
+        pendingFilename = data.filename;
+        showResult(data.filename);
+        document.getElementById('dl-btn').disabled = false;
+        document.getElementById('info-btn').disabled = false;
+        document.getElementById('progress-section').style.display = 'none';
+      } else if (data.type === 'error') {
+        es.close();
+        showError(data.message);
+        document.getElementById('dl-btn').disabled = false;
+        document.getElementById('info-btn').disabled = false;
+        document.getElementById('progress-section').style.display = 'none';
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      document.getElementById('dl-btn').disabled = false;
+      document.getElementById('info-btn').disabled = false;
+    };
+  }
+
+  async function saveFile() {
+    if (!pendingFileId || !pendingFilename) return;
+
+    const saveBtn = document.getElementById('save-btn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner"></span>Enregistrement…';
+
+    try {
+      const result = await window.electronAPI.saveFile(pendingFileId, pendingFilename);
+      if (result.ok) {
+        saveBtn.textContent = '✓ Enregistré !';
+        saveBtn.style.background = '#1a7a40';
+        document.getElementById('result-filename').textContent = 'Fichier enregistré dans Téléchargements';
+        pendingFileId = null;
+        pendingFilename = null;
+      } else {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Enregistrer dans Téléchargements';
+        showError(result.error || 'Erreur lors de l\'enregistrement');
+      }
+    } catch (e) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Enregistrer dans Téléchargements';
+      showError('Erreur lors de l\'enregistrement');
+    }
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
+  }
+
+  function showResult(filename) {
+    const section = document.getElementById('result-section');
+    section.style.display = 'flex';
+    document.getElementById('result-filename').textContent = filename || '';
+    const saveBtn = document.getElementById('save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 Enregistrer dans Téléchargements';
+    saveBtn.style.background = '';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = '⚠ ' + msg;
+    el.style.display = 'block';
+  }
+
+  function resetUI() {
+    document.getElementById('preview').style.display = 'none';
+    document.getElementById('options').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('result-section').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+    pendingFileId = null;
+    pendingFilename = null;
+  }
+</script>
+</body>
+</html>

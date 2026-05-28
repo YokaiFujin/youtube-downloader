@@ -1,0 +1,6 @@
+node_modules/
+yt-dlp.exe
+bin/
+.claude/
+*.log
+public/icon_source.png
