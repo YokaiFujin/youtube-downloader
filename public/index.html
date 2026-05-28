@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Downloader</title>
+  <title>Video Downloader</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,29 +20,95 @@
       --radius: 12px;
     }
 
+    html, body {
+      height: 100%;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
+      display: flex;
+      flex-direction: row;
       min-height: 100vh;
+    }
+
+    /* ─── Sidebar ────────────────────────────────────── */
+    #sidebar {
+      width: 76px;
+      min-height: 100vh;
+      background: #111;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 28px;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .platform-btn {
+      width: 100%;
+      padding: 12px 0 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: none;
+      border-left: 3px solid transparent;
+      border-radius: 0;
+      color: #4a4a4a;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .platform-btn svg {
+      width: 21px;
+      height: 21px;
+      transition: color 0.2s;
+    }
+    .platform-btn:hover:not(:disabled) {
+      color: #888;
+      background: rgba(255,255,255,0.04);
+      border-left-color: #444;
+    }
+    .platform-btn.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    /* ─── Main ───────────────────────────────────────── */
+    main {
+      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 40px 16px;
+      overflow-y: auto;
     }
 
     header {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 36px;
     }
     header h1 {
       font-size: 2rem;
       font-weight: 700;
       letter-spacing: -0.5px;
     }
-    header h1 span { color: var(--accent); }
-    header p { color: var(--text-muted); margin-top: 6px; font-size: 0.9rem; }
+    header h1 .accent { color: var(--accent); transition: color 0.3s; }
+    header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 0.9rem;
+      transition: opacity 0.2s;
+    }
 
+    /* ─── Card ───────────────────────────────────────── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -52,10 +118,7 @@
       max-width: 640px;
     }
 
-    .url-row {
-      display: flex;
-      gap: 10px;
-    }
+    .url-row { display: flex; gap: 10px; }
     .url-row input {
       flex: 1;
       background: var(--surface2);
@@ -93,6 +156,7 @@
     button.green { background: #27ae60; }
     button.green:hover:not(:disabled) { background: #219a52; }
 
+    /* ─── Preview ─────────────────────────────────────── */
     #preview {
       display: none;
       margin-top: 20px;
@@ -107,10 +171,7 @@
       padding: 14px;
       align-items: center;
     }
-    .thumb-wrap {
-      position: relative;
-      flex-shrink: 0;
-    }
+    .thumb-wrap { position: relative; flex-shrink: 0; }
     .thumb-wrap img {
       width: 120px;
       height: 68px;
@@ -120,8 +181,7 @@
     }
     .duration-badge {
       position: absolute;
-      bottom: 4px;
-      right: 4px;
+      bottom: 4px; right: 4px;
       background: rgba(0,0,0,0.8);
       color: #fff;
       font-size: 0.7rem;
@@ -138,12 +198,9 @@
       -webkit-box-orient: vertical;
       line-height: 1.4;
     }
-    .preview-meta p {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      margin-top: 4px;
-    }
+    .preview-meta p { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
 
+    /* ─── Options ─────────────────────────────────────── */
     .options {
       display: none;
       padding: 14px;
@@ -151,11 +208,7 @@
       gap: 12px;
       flex-direction: column;
     }
-    .options-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    .options-row { display: flex; gap: 10px; flex-wrap: wrap; }
     .format-btn {
       flex: 1;
       min-width: 100px;
@@ -188,16 +241,10 @@
     }
     select:focus { border-color: var(--accent); }
 
-    .dl-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+    .dl-row { display: flex; gap: 10px; align-items: center; }
 
-    #progress-section {
-      display: none;
-      margin-top: 20px;
-    }
+    /* ─── Progress ────────────────────────────────────── */
+    #progress-section { display: none; margin-top: 20px; }
     .progress-bar-wrap {
       background: var(--surface2);
       border-radius: 999px;
@@ -231,6 +278,7 @@
       border: 1px solid var(--border);
     }
 
+    /* ─── Result ──────────────────────────────────────── */
     #result-section {
       display: none;
       margin-top: 16px;
@@ -240,12 +288,15 @@
       padding: 16px 20px;
       align-items: center;
       gap: 14px;
+      width: 100%;
+      max-width: 640px;
     }
     #result-section .icon { font-size: 1.6rem; }
     #result-section .msg { flex: 1; }
     #result-section .msg strong { color: var(--green); font-size: 0.95rem; }
     #result-section .msg p { color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
 
+    /* ─── Error ───────────────────────────────────────── */
     #error-msg {
       display: none;
       margin-top: 12px;
@@ -257,6 +308,7 @@
       color: #f88;
     }
 
+    /* ─── Spinner ─────────────────────────────────────── */
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
@@ -269,6 +321,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ─── Footer ──────────────────────────────────────── */
     footer {
       margin-top: 40px;
       color: var(--text-muted);
@@ -280,90 +333,181 @@
 </head>
 <body>
 
-<header>
-  <h1>YouTube <span>Downloader</span></h1>
-  <p>Télécharge des vidéos en MP3 ou MP4 — 100% local, aucune limite</p>
-</header>
+<!-- ── Sidebar ─────────────────────────────────────── -->
+<nav id="sidebar">
 
-<div class="card">
-  <div class="url-row">
-    <input type="text" id="url-input" placeholder="Colle une URL YouTube…" autocomplete="off" spellcheck="false">
-    <button id="info-btn">Analyser</button>
-  </div>
+  <button class="platform-btn active" data-platform="youtube" onclick="switchPlatform('youtube')">
+    <!-- YouTube icon -->
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.5 6.2s-.3-1.8-1.1-2.5c-1-1.1-2.2-1.1-2.8-1.2C16.5 2.3 12 2.3 12 2.3s-4.5 0-7.6.2C3.8 2.6 2.6 2.6 1.6 3.7.8 4.4.5 6.2.5 6.2S.2 8.2.2 10.2v1.8c0 2 .3 4 .3 4s.3 1.8 1.1 2.5c1.1 1.1 2.5 1 3.1 1.1C6.9 19.8 12 19.8 12 19.8s4.5 0 7.6-.3c.6-.1 1.8-.1 2.8-1.1.8-.8 1.1-2.5 1.1-2.5s.3-2 .3-4v-1.8c0-2-.3-4-.3-4zM9.7 14.7V9.1l6.5 2.8-6.5 2.8z"/>
+    </svg>
+    YouTube
+  </button>
 
-  <div id="preview">
-    <div class="preview-inner">
-      <div class="thumb-wrap">
-        <img id="thumb" src="" alt="thumbnail">
-        <span class="duration-badge" id="duration"></span>
-      </div>
-      <div class="preview-meta">
-        <h3 id="vid-title"></h3>
-        <p id="vid-channel"></p>
-      </div>
+  <button class="platform-btn" data-platform="instagram" onclick="switchPlatform('instagram')">
+    <!-- Instagram icon -->
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.7.1 4.9s0 3.5-.1 4.8c-.1 3.3-1.7 4.8-4.9 4.9-1.3.1-1.6.1-4.9.1s-3.5 0-4.8-.1C3.9 21.7 2.4 20.1 2.3 17c-.1-1.3-.1-1.6-.1-4.8s0-3.6.1-4.9C2.4 3.9 4 2.4 7.2 2.3c1.3-.1 1.6-.1 4.8-.1zM12 0C8.7 0 8.3 0 7.1.1 2.7.3.3 2.7.1 7.1 0 8.3 0 8.7 0 12s0 3.7.1 4.9c.2 4.4 2.6 6.8 7 7C8.3 24 8.7 24 12 24s3.7 0 4.9-.1c4.4-.2 6.8-2.6 7-7 .1-1.2.1-1.6.1-4.9s0-3.7-.1-4.9c-.2-4.4-2.6-6.8-7-7C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 100 12.4A6.2 6.2 0 0012 5.8zm0 10.2a4 4 0 110-8 4 4 0 010 8zm6.4-11.8a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/>
+    </svg>
+    Insta
+  </button>
+
+  <button class="platform-btn" data-platform="tiktok" onclick="switchPlatform('tiktok')">
+    <!-- TikTok icon -->
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.6 3.3A4.8 4.8 0 0115 0h-3v15.4a2.9 2.9 0 01-2.8 2.6 2.9 2.9 0 01-2.9-2.9 2.9 2.9 0 012.9-2.9l.8.1V8.8l-.8-.1a6.2 6.2 0 00-6.2 6.2A6.2 6.2 0 009.2 21a6.2 6.2 0 006.2-6.2V7.5a8.1 8.1 0 004.8 1.5V5.6a4.8 4.8 0 01-4.6-2.3z"/>
+    </svg>
+    TikTok
+  </button>
+
+</nav>
+
+<!-- ── Main content ──────────────────────────────── -->
+<main>
+
+  <header>
+    <h1><span id="platform-name">YouTube</span> <span class="accent">Downloader</span></h1>
+    <p id="header-sub">Télécharge des vidéos en MP3 ou MP4 — 100% local, aucune limite</p>
+  </header>
+
+  <div class="card">
+    <div class="url-row">
+      <input type="text" id="url-input" placeholder="Colle une URL YouTube…" autocomplete="off" spellcheck="false">
+      <button id="info-btn">Analyser</button>
     </div>
 
-    <div class="options" id="options">
-      <div class="options-row">
-        <div class="format-btn active" id="btn-mp4" onclick="selectFormat('mp4')">
-          <div class="fmt-label">MP4</div>
-          <div class="fmt-desc">Vidéo + Audio</div>
+    <div id="preview">
+      <div class="preview-inner">
+        <div class="thumb-wrap">
+          <img id="thumb" src="" alt="thumbnail">
+          <span class="duration-badge" id="duration"></span>
         </div>
-        <div class="format-btn" id="btn-mp3" onclick="selectFormat('mp3')">
-          <div class="fmt-label">MP3</div>
-          <div class="fmt-desc">Audio uniquement</div>
+        <div class="preview-meta">
+          <h3 id="vid-title"></h3>
+          <p id="vid-channel"></p>
         </div>
       </div>
 
-      <div class="dl-row">
-        <select id="quality-select">
-          <option value="best">Meilleure qualité disponible</option>
-        </select>
-        <button class="green" id="dl-btn" onclick="startDownload()">⬇ Télécharger</button>
+      <div class="options" id="options">
+        <div class="options-row">
+          <div class="format-btn active" id="btn-mp4" onclick="selectFormat('mp4')">
+            <div class="fmt-label">MP4</div>
+            <div class="fmt-desc">Vidéo + Audio</div>
+          </div>
+          <div class="format-btn" id="btn-mp3" onclick="selectFormat('mp3')">
+            <div class="fmt-label">MP3</div>
+            <div class="fmt-desc">Audio uniquement</div>
+          </div>
+        </div>
+
+        <div class="dl-row">
+          <select id="quality-select">
+            <option value="best">Meilleure qualité disponible</option>
+          </select>
+          <button class="green" id="dl-btn" onclick="startDownload()">⬇ Télécharger</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="progress-section">
-    <div class="progress-bar-wrap">
-      <div class="progress-bar" id="progress-bar"></div>
+    <div id="progress-section">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-info">
+        <span id="progress-pct">0%</span>
+        <span id="progress-speed"></span>
+      </div>
+      <div class="log-box" id="log-box"></div>
     </div>
-    <div class="progress-info">
-      <span id="progress-pct">0%</span>
-      <span id="progress-speed"></span>
+
+    <div id="error-msg"></div>
+  </div>
+
+  <div id="result-section">
+    <div class="icon">✅</div>
+    <div class="msg">
+      <strong>Téléchargement terminé !</strong>
+      <p id="result-filename"></p>
     </div>
-    <div class="log-box" id="log-box"></div>
+    <button class="green" id="save-btn" style="padding:10px 16px" onclick="saveFile()">💾 Enregistrer dans Téléchargements</button>
   </div>
 
-  <div id="error-msg"></div>
-</div>
+  <footer>
+    Propulsé par <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> + ffmpeg &nbsp;·&nbsp; 100% local
+  </footer>
 
-<div id="result-section">
-  <div class="icon">✅</div>
-  <div class="msg">
-    <strong>Téléchargement terminé !</strong>
-    <p id="result-filename"></p>
-  </div>
-  <button class="green" id="save-btn" style="padding:10px 16px" onclick="saveFile()">💾 Enregistrer dans Téléchargements</button>
-</div>
-
-<footer>
-  Propulsé par <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> + ffmpeg &nbsp;·&nbsp; 100% local
-</footer>
+</main>
 
 <script>
-  let selectedFormat = 'mp4';
-  let videoHeights = [];
+  // ── Config des plateformes ─────────────────────────────
+  const PLATFORMS = {
+    youtube: {
+      name:        'YouTube',
+      color:       '#ff0000',
+      colorHover:  '#cc0000',
+      placeholder: 'Colle une URL YouTube…',
+      sub:         'Télécharge des vidéos en MP3 ou MP4 — 100% local, aucune limite'
+    },
+    instagram: {
+      name:        'Instagram',
+      color:       '#e1306c',
+      colorHover:  '#c12860',
+      placeholder: 'Colle une URL Instagram…',
+      sub:         'Télécharge des Reels et posts Instagram — 100% local, aucune limite'
+    },
+    tiktok: {
+      name:        'TikTok',
+      color:       '#fe2c55',
+      colorHover:  '#d42040',
+      placeholder: 'Colle une URL TikTok…',
+      sub:         'Télécharge des vidéos TikTok — 100% local, aucune limite'
+    }
+  };
+
+  // ── State ──────────────────────────────────────────────
+  let currentPlatform = 'youtube';
+  let selectedFormat  = 'mp4';
+  let videoHeights    = [];
   let currentEventSource = null;
-  let pendingFileId = null;
+  let pendingFileId   = null;
   let pendingFilename = null;
 
+  // ── DOM refs ───────────────────────────────────────────
   const urlInput = document.getElementById('url-input');
-  const infoBtn = document.getElementById('info-btn');
+  const infoBtn  = document.getElementById('info-btn');
 
   urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchInfo(); });
   infoBtn.addEventListener('click', fetchInfo);
 
+  // ── switchPlatform ─────────────────────────────────────
+  function switchPlatform(platform) {
+    if (platform === currentPlatform) return;
+    currentPlatform = platform;
+    const cfg = PLATFORMS[platform];
+
+    // Accent color
+    document.documentElement.style.setProperty('--accent',       cfg.color);
+    document.documentElement.style.setProperty('--accent-hover', cfg.colorHover);
+
+    // Sidebar
+    document.querySelectorAll('.platform-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.platform === platform);
+    });
+
+    // Header
+    document.getElementById('platform-name').textContent = cfg.name;
+    document.getElementById('header-sub').textContent    = cfg.sub;
+    document.title = cfg.name + ' Downloader';
+
+    // Input
+    urlInput.placeholder = cfg.placeholder;
+    urlInput.value       = '';
+
+    // Reset content
+    resetUI();
+  }
+
+  // ── Format ────────────────────────────────────────────
   function selectFormat(fmt) {
     selectedFormat = fmt;
     document.getElementById('btn-mp4').classList.toggle('active', fmt === 'mp4');
@@ -378,7 +522,7 @@
       sel.innerHTML = '<option value="mp3">Meilleure qualité audio (320kbps)</option>';
     } else {
       sel.innerHTML = '<option value="best">Meilleure qualité disponible</option>';
-      const labels = { 2160: '4K (2160p)', 1440: '2K (1440p)', 1080: 'Full HD (1080p)', 720: 'HD (720p)', 480: '480p', 360: '360p' };
+      const labels = { 2160:'4K (2160p)', 1440:'2K (1440p)', 1080:'Full HD (1080p)', 720:'HD (720p)', 480:'480p', 360:'360p' };
       videoHeights.forEach(h => {
         const opt = document.createElement('option');
         opt.value = h;
@@ -388,6 +532,7 @@
     }
   }
 
+  // ── Fetch info ─────────────────────────────────────────
   async function fetchInfo() {
     const url = urlInput.value.trim();
     if (!url) return;
@@ -397,12 +542,12 @@
     infoBtn.innerHTML = '<span class="spinner"></span>Analyse…';
 
     try {
-      const res = await fetch('/api/info?url=' + encodeURIComponent(url));
+      const res  = await fetch('/api/info?url=' + encodeURIComponent(url));
       const data = await res.json();
 
       if (!res.ok) { showError(data.error || 'Erreur inconnue'); return; }
 
-      document.getElementById('thumb').src = data.thumbnail || '';
+      document.getElementById('thumb').src          = data.thumbnail || '';
       document.getElementById('duration').textContent = data.duration_str || '';
       document.getElementById('vid-title').textContent = data.title || '';
       document.getElementById('vid-channel').textContent = data.channel || '';
@@ -420,32 +565,30 @@
     }
   }
 
+  // ── Download ───────────────────────────────────────────
   function startDownload() {
     const url = urlInput.value.trim();
     if (!url) return;
 
     if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
 
-    const fmt = selectedFormat;
-    const qualitySel = document.getElementById('quality-select');
-    const quality = fmt === 'mp3' ? 'mp3' : (qualitySel.value || 'best');
+    const fmt     = selectedFormat;
+    const quality = fmt === 'mp3' ? 'mp3' : (document.getElementById('quality-select').value || 'best');
 
-    document.getElementById('error-msg').style.display = 'none';
-    document.getElementById('result-section').style.display = 'none';
+    document.getElementById('error-msg').style.display       = 'none';
+    document.getElementById('result-section').style.display  = 'none';
     document.getElementById('progress-section').style.display = 'block';
     document.getElementById('log-box').textContent = '';
     setProgress(0);
 
-    document.getElementById('dl-btn').disabled = true;
+    document.getElementById('dl-btn').disabled  = true;
     document.getElementById('info-btn').disabled = true;
 
-    const params = new URLSearchParams({ url, format: fmt, quality });
-    const es = new EventSource('/api/download?' + params);
+    const es = new EventSource('/api/download?' + new URLSearchParams({ url, format: fmt, quality }));
     currentEventSource = es;
 
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
-
       if (data.type === 'progress') {
         setProgress(data.percent);
         if (data.speed) document.getElementById('progress-speed').textContent = data.speed;
@@ -454,16 +597,16 @@
       } else if (data.type === 'done') {
         setProgress(100);
         es.close();
-        pendingFileId = data.fileId;
+        pendingFileId   = data.fileId;
         pendingFilename = data.filename;
         showResult(data.filename);
-        document.getElementById('dl-btn').disabled = false;
+        document.getElementById('dl-btn').disabled  = false;
         document.getElementById('info-btn').disabled = false;
         document.getElementById('progress-section').style.display = 'none';
       } else if (data.type === 'error') {
         es.close();
         showError(data.message);
-        document.getElementById('dl-btn').disabled = false;
+        document.getElementById('dl-btn').disabled  = false;
         document.getElementById('info-btn').disabled = false;
         document.getElementById('progress-section').style.display = 'none';
       }
@@ -471,14 +614,14 @@
 
     es.onerror = () => {
       es.close();
-      document.getElementById('dl-btn').disabled = false;
+      document.getElementById('dl-btn').disabled  = false;
       document.getElementById('info-btn').disabled = false;
     };
   }
 
+  // ── Save file ──────────────────────────────────────────
   async function saveFile() {
     if (!pendingFileId || !pendingFilename) return;
-
     const saveBtn = document.getElementById('save-btn');
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner"></span>Enregistrement…';
@@ -486,23 +629,24 @@
     try {
       const result = await window.electronAPI.saveFile(pendingFileId, pendingFilename);
       if (result.ok) {
-        saveBtn.textContent = '✓ Enregistré !';
+        saveBtn.textContent    = '✓ Enregistré !';
         saveBtn.style.background = '#1a7a40';
         document.getElementById('result-filename').textContent = 'Fichier enregistré dans Téléchargements';
-        pendingFileId = null;
+        pendingFileId   = null;
         pendingFilename = null;
       } else {
         saveBtn.disabled = false;
         saveBtn.textContent = '💾 Enregistrer dans Téléchargements';
         showError(result.error || 'Erreur lors de l\'enregistrement');
       }
-    } catch (e) {
+    } catch {
       saveBtn.disabled = false;
       saveBtn.textContent = '💾 Enregistrer dans Téléchargements';
       showError('Erreur lors de l\'enregistrement');
     }
   }
 
+  // ── Helpers ────────────────────────────────────────────
   function setProgress(pct) {
     document.getElementById('progress-bar').style.width = pct + '%';
     document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
@@ -520,17 +664,18 @@
 
   function showError(msg) {
     const el = document.getElementById('error-msg');
-    el.textContent = '⚠ ' + msg;
+    el.textContent  = '⚠ ' + msg;
     el.style.display = 'block';
   }
 
   function resetUI() {
-    document.getElementById('preview').style.display = 'none';
-    document.getElementById('options').style.display = 'none';
+    if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
+    document.getElementById('preview').style.display          = 'none';
+    document.getElementById('options').style.display          = 'none';
     document.getElementById('progress-section').style.display = 'none';
-    document.getElementById('result-section').style.display = 'none';
-    document.getElementById('error-msg').style.display = 'none';
-    pendingFileId = null;
+    document.getElementById('result-section').style.display   = 'none';
+    document.getElementById('error-msg').style.display        = 'none';
+    pendingFileId   = null;
     pendingFilename = null;
   }
 </script>
