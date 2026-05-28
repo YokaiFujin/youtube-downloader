@@ -9,6 +9,7 @@ echo ============================================
 echo.
 
 :: ── Node.js ──────────────────────────────────
+set "NPM_CMD=npm"
 where node >nul 2>&1
 if %errorlevel% neq 0 (
   echo [1/4] Node.js non detecte. Telechargement...
@@ -16,6 +17,7 @@ if %errorlevel% neq 0 (
   msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
   del "%TEMP%\node_installer.msi"
   set "PATH=%PATH%;C:\Program Files\nodejs"
+  set "NPM_CMD=C:\Program Files\nodejs\npm.cmd"
   echo [1/4] Node.js installe.
 ) else (
   echo [1/4] Node.js detecte.
@@ -23,7 +25,7 @@ if %errorlevel% neq 0 (
 
 :: ── npm install ───────────────────────────────
 echo [2/4] Installation des dependances (Electron + Express)...
-call npm install
+call "!NPM_CMD!" install
 if %errorlevel% neq 0 (
   echo ERREUR: npm install a echoue.
   pause
