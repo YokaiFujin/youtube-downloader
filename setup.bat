@@ -10,6 +10,7 @@ echo.
 
 :: ── Node.js ──────────────────────────────────
 echo [1/4] Verification de Node.js...
+set "NPM=npm"
 
 where node >nul 2>&1
 if %errorlevel% equ 0 (
@@ -17,15 +18,6 @@ if %errorlevel% equ 0 (
   goto :NPM_INSTALL
 )
 
-:: Si on est deja dans un relancement, Node.js doit etre la
-if /i "%~1"=="relaunch" (
-  echo ERREUR: Node.js toujours introuvable apres installation.
-  echo Redémarre ton PC puis relance setup.bat.
-  pause
-  exit /b 1
-)
-
-:: Node.js absent : telechargement + installation
 echo [1/4] Node.js non detecte. Telechargement en cours...
 curl -L "https://nodejs.org/dist/v22.13.0/node-v22.13.0-x64.msi" -o "%TEMP%\node_installer.msi"
 if %errorlevel% neq 0 (
@@ -36,18 +28,31 @@ if %errorlevel% neq 0 (
 msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
 del "%TEMP%\node_installer.msi" >nul 2>&1
 echo [1/4] Node.js installe.
-echo     Rechargement de l'environnement...
-echo.
 
-:: Relancer le script dans un NOUVEAU processus cmd
-:: Le nouveau processus lit le PATH depuis le registre et trouvera npm
-cmd /c ""%~f0" relaunch"
-exit /b %errorlevel%
+:: Chercher npm.cmd directement sur le disque (le PATH n'est pas mis
+:: a jour dans la session courante apres une installation silencieuse)
+set "NPM="
+set "PF86=%ProgramFiles(x86)%"
+if exist "%ProgramFiles%\nodejs\npm.cmd"         set "NPM=%ProgramFiles%\nodejs\npm.cmd"
+if exist "!PF86!\nodejs\npm.cmd"                 set "NPM=!PF86!\nodejs\npm.cmd"
+if exist "%LOCALAPPDATA%\Programs\nodejs\npm.cmd" set "NPM=%LOCALAPPDATA%\Programs\nodejs\npm.cmd"
+
+if "!NPM!"=="" (
+  echo ERREUR: npm introuvable apres installation.
+  echo Redemarre ton PC puis relance setup.bat.
+  pause
+  exit /b 1
+)
+echo    npm trouve : !NPM!
 
 :NPM_INSTALL
 :: ── npm install ───────────────────────────────
 echo [2/4] Installation des dependances (Electron + Express)...
-call npm install
+if "!NPM!"=="npm" (
+  call npm install
+) else (
+  call "!NPM!" install
+)
 if %errorlevel% neq 0 (
   echo.
   echo ERREUR: npm install a echoue.
