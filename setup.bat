@@ -29,14 +29,37 @@ msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
 del "%TEMP%\node_installer.msi" >nul 2>&1
 echo [1/4] Node.js installe.
 
-:: Chercher npm.cmd directement sur le disque (le PATH n'est pas mis
-:: a jour dans la session courante apres une installation silencieuse)
+:: Chercher npm.cmd — le PATH n'est pas mis a jour dans la session courante
 set "NPM="
 set "PF86=%ProgramFiles(x86)%"
-if exist "%ProgramFiles%\nodejs\npm.cmd"         set "NPM=%ProgramFiles%\nodejs\npm.cmd"
-if exist "!PF86!\nodejs\npm.cmd"                 set "NPM=!PF86!\nodejs\npm.cmd"
-if exist "%LOCALAPPDATA%\Programs\nodejs\npm.cmd" set "NPM=%LOCALAPPDATA%\Programs\nodejs\npm.cmd"
 
+:: 1. Emplacements courants (rapide)
+if exist "%ProgramFiles%\nodejs\npm.cmd"                     set "NPM=%ProgramFiles%\nodejs\npm.cmd"
+if "!NPM!"=="" if exist "!PF86!\nodejs\npm.cmd"              set "NPM=!PF86!\nodejs\npm.cmd"
+if "!NPM!"=="" if exist "%LOCALAPPDATA%\Programs\nodejs\npm.cmd" set "NPM=%LOCALAPPDATA%\Programs\nodejs\npm.cmd"
+if "!NPM!"=="" if exist "%APPDATA%\npm\npm.cmd"              set "NPM=%APPDATA%\npm\npm.cmd"
+if not "!NPM!"=="" goto :GOT_NPM
+
+:: 2. Recherche approfondie : cle registre Node.js + PATH systeme + scan dossiers
+set "PS1=%TEMP%\ytdl_findnpm_%RANDOM%.ps1"
+echo $r = '' > "!PS1!"
+echo try { $r = (Get-ItemProperty 'HKLM:\SOFTWARE\Node.js' -EA Stop).InstallPath.TrimEnd('\') + '\npm.cmd' } catch {} >> "!PS1!"
+echo if (-not $r) { try { $r = (Get-ItemProperty 'HKCU:\SOFTWARE\Node.js' -EA Stop).InstallPath.TrimEnd('\') + '\npm.cmd' } catch {} } >> "!PS1!"
+echo if ($r -and (Test-Path $r)) { $r; exit } >> "!PS1!"
+echo $m = [System.Environment]::GetEnvironmentVariable('PATH','Machine') >> "!PS1!"
+echo $u = [System.Environment]::GetEnvironmentVariable('PATH','User') >> "!PS1!"
+echo foreach ($d in ($m + ';' + $u).Split(';')) { >> "!PS1!"
+echo     if ($d.Trim() -eq '') { continue } >> "!PS1!"
+echo     $f = Join-Path $d.Trim() 'npm.cmd' >> "!PS1!"
+echo     if (Test-Path $f) { $f; exit } >> "!PS1!"
+echo } >> "!PS1!"
+echo $dirs = @('C:\Program Files', 'C:\Program Files (x86)', $env:LOCALAPPDATA, $env:APPDATA) >> "!PS1!"
+echo $h = @(Get-ChildItem -Path $dirs -Filter 'npm.cmd' -Recurse -Depth 4 -EA SilentlyContinue) >> "!PS1!"
+echo if ($h.Count -gt 0) { $h[0].FullName } >> "!PS1!"
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -ExecutionPolicy Bypass -File "!PS1!" 2^>nul`) do set "NPM=%%p"
+del "!PS1!" >nul 2>&1
+
+:GOT_NPM
 if "!NPM!"=="" (
   echo ERREUR: npm introuvable apres installation.
   echo Redemarre ton PC puis relance setup.bat.
