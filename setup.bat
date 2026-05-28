@@ -11,31 +11,21 @@ echo.
 :: ── Node.js ──────────────────────────────────
 echo [1/4] Verification de Node.js...
 
-:: Cherche node dans le PATH courant
 where node >nul 2>&1
 if %errorlevel% equ 0 (
-  echo [1/4] Node.js detecte dans le PATH.
+  echo [1/4] Node.js detecte.
   goto :NPM_INSTALL
 )
 
-:: Cherche node.exe dans les emplacements Windows courants
-set "NODE_FOUND=0"
-for %%P in (
-  "%ProgramFiles%\nodejs\node.exe"
-  "%ProgramFiles(x86)%\nodejs\node.exe"
-  "%LOCALAPPDATA%\Programs\nodejs\node.exe"
-  "%APPDATA%\npm\node.exe"
-) do (
-  if exist %%P (
-    set "NODE_FOUND=1"
-    for %%D in (%%P) do set "NODEJS_DIR=%%~dpD"
-    echo [1/4] Node.js trouve dans !NODEJS_DIR!
-  )
+:: Si on est deja dans un relancement, Node.js doit etre la
+if /i "%~1"=="relaunch" (
+  echo ERREUR: Node.js toujours introuvable apres installation.
+  echo Redémarre ton PC puis relance setup.bat.
+  pause
+  exit /b 1
 )
 
-if "!NODE_FOUND!"=="1" goto :NPM_INSTALL
-
-:: Pas trouve — telechargement et installation
+:: Node.js absent : telechargement + installation
 echo [1/4] Node.js non detecte. Telechargement en cours...
 curl -L "https://nodejs.org/dist/v22.13.0/node-v22.13.0-x64.msi" -o "%TEMP%\node_installer.msi"
 if %errorlevel% neq 0 (
@@ -46,17 +36,22 @@ if %errorlevel% neq 0 (
 msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
 del "%TEMP%\node_installer.msi" >nul 2>&1
 echo [1/4] Node.js installe.
+echo     Rechargement de l'environnement...
+echo.
+
+:: Relancer le script dans un NOUVEAU processus cmd
+:: Le nouveau processus lit le PATH depuis le registre et trouvera npm
+cmd /c ""%~f0" relaunch"
+exit /b %errorlevel%
 
 :NPM_INSTALL
 :: ── npm install ───────────────────────────────
-:: PowerShell relit le PATH depuis le registre Windows — trouve npm
-:: peu importe ou Node.js est installe, et meme apres une install fraiche
 echo [2/4] Installation des dependances (Electron + Express)...
-powershell -NoProfile -Command "$env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User'); npm install; exit $LASTEXITCODE"
+call npm install
 if %errorlevel% neq 0 (
   echo.
   echo ERREUR: npm install a echoue.
-  echo Essaie de fermer cette fenetre et de relancer setup.bat.
+  echo Ferme cette fenetre et relance setup.bat.
   pause
   exit /b 1
 )
