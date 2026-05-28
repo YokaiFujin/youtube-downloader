@@ -3,6 +3,22 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title YouTube Downloader Desktop — Installation
 
+:: ── Droits administrateur (requis pour installer Node.js) ────────
+:: Node.js s'installe dans Program Files et modifie le PATH systeme.
+:: Sans droits admin, msiexec /quiet echoue silencieusement (code 0).
+:: On detecte ca et on relance le script en mode eleve via VBScript.
+net session >nul 2>&1
+if %errorlevel% equ 0 goto :IS_ADMIN
+
+echo Elevation des droits necessaire. Cliquez OUI dans la fenetre UAC...
+set "VBS=%TEMP%\ytdl_elev_%RANDOM%.vbs"
+echo Set sh = CreateObject("Shell.Application") > "%VBS%"
+echo sh.ShellExecute "cmd.exe", "/c ""%~f0""", "%~dp0", "runas", 1 >> "%VBS%"
+cscript //NoLogo "%VBS%"
+del "%VBS%" >nul 2>&1
+exit /b
+
+:IS_ADMIN
 echo ============================================
 echo   YouTube Downloader Desktop - Setup
 echo ============================================
