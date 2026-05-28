@@ -98,16 +98,18 @@ app.get('/api/download', (req, res) => {
   if (format === 'mp3') {
     args = args.concat(['-x', '--audio-format', 'mp3', '--audio-quality', '0']);
   } else {
+    // Prefer H.264 (avc) for Premiere Pro / broad compatibility
+    // Falls back to any codec if H.264 unavailable at that resolution
     const qualityMap = {
-      'best': 'bestvideo+bestaudio/best',
-      '2160': 'bestvideo[height<=2160]+bestaudio/best[height<=2160]',
-      '1440': 'bestvideo[height<=1440]+bestaudio/best[height<=1440]',
-      '1080': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-      '720':  'bestvideo[height<=720]+bestaudio/best[height<=720]',
-      '480':  'bestvideo[height<=480]+bestaudio/best[height<=480]',
-      '360':  'bestvideo[height<=360]+bestaudio/best[height<=360]',
+      'best': 'bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best',
+      '2160': 'bestvideo[height<=2160][vcodec^=avc]+bestaudio/bestvideo[height<=2160]+bestaudio/best[height<=2160]',
+      '1440': 'bestvideo[height<=1440][vcodec^=avc]+bestaudio/bestvideo[height<=1440]+bestaudio/best[height<=1440]',
+      '1080': 'bestvideo[height<=1080][vcodec^=avc]+bestaudio/bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+      '720':  'bestvideo[height<=720][vcodec^=avc]+bestaudio/bestvideo[height<=720]+bestaudio/best[height<=720]',
+      '480':  'bestvideo[height<=480][vcodec^=avc]+bestaudio/bestvideo[height<=480]+bestaudio/best[height<=480]',
+      '360':  'bestvideo[height<=360][vcodec^=avc]+bestaudio/bestvideo[height<=360]+bestaudio/best[height<=360]',
     };
-    args = args.concat(['-f', qualityMap[quality] || qualityMap['best'], '--merge-output-format', 'mp4']);
+    args = args.concat(['-f', qualityMap[quality] || qualityMap['best'], '--merge-output-format', 'mp4', '--postprocessor-args', 'ffmpeg:-c:a aac -b:a 192k']);
   }
 
   args.push(url);
