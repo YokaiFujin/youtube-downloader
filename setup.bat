@@ -9,23 +9,22 @@ echo ============================================
 echo.
 
 :: ── Node.js ──────────────────────────────────
-set "NPM_CMD=npm"
 where node >nul 2>&1
 if %errorlevel% neq 0 (
   echo [1/4] Node.js non detecte. Telechargement...
   curl -L "https://nodejs.org/dist/v22.13.0/node-v22.13.0-x64.msi" -o "%TEMP%\node_installer.msi"
   msiexec /i "%TEMP%\node_installer.msi" /quiet /norestart
   del "%TEMP%\node_installer.msi"
-  set "PATH=%PATH%;C:\Program Files\nodejs"
-  set "NPM_CMD=C:\Program Files\nodejs\npm.cmd"
   echo [1/4] Node.js installe.
 ) else (
   echo [1/4] Node.js detecte.
 )
 
 :: ── npm install ───────────────────────────────
+:: Rafraichit le PATH depuis le registre pour trouver npm meme apres
+:: une installation fraiche de Node.js dans la meme session CMD
 echo [2/4] Installation des dependances (Electron + Express)...
-call "!NPM_CMD!" install
+powershell -NoProfile -Command "$env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User'); npm install; exit $LASTEXITCODE"
 if %errorlevel% neq 0 (
   echo ERREUR: npm install a echoue.
   pause
