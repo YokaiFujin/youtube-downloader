@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const https = require('https');
 
 const app = express();
 
@@ -61,14 +62,39 @@ app.get('/api/info', (req, res) => {
           .map(f => f.height)
           .sort((a, b) => b - a)
       )];
+
+      // ── Infos techniques ────────────────────────────────────────
+      // Meilleur format vidéo (résolution max, H.264 préféré)
+      const bestVideo = (info.formats || [])
+        .filter(f => f.height && f.vcodec && f.vcodec !== 'none')
+        .sort((a, b) => b.height !== a.height
+          ? b.height - a.height
+          : (b.vcodec.startsWith('avc') ? 1 : 0) - (a.vcodec.startsWith('avc') ? 1 : 0)
+        )[0];
+
+      // Meilleur format audio-only (bitrate max)
+      const bestAudio = (info.formats || [])
+        .filter(f => f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
+        .sort((a, b) => (b.abr || b.tbr || 0) - (a.abr || a.tbr || 0))[0];
+
+      const totalSize = (bestVideo?.filesize_approx || bestVideo?.filesize || 0)
+                      + (bestAudio?.filesize_approx  || bestAudio?.filesize  || 0);
+
       res.json({
-        title: info.title,
-        thumbnail: info.thumbnail,
-        duration: info.duration,
+        title:       info.title,
+        thumbnail:   info.thumbnail,
+        duration:    info.duration,
         duration_str: info.duration_string,
-        channel: info.uploader || info.channel,
-        view_count: info.view_count,
-        heights: heights.slice(0, 8)
+        channel:     info.uploader || info.channel,
+        view_count:  info.view_count,
+        heights:     heights.slice(0, 8),
+        tech: {
+          fps:      bestVideo?.fps || info.fps || null,
+          vcodec:   bestVideo?.vcodec || null,
+          vbr:      Math.round(bestVideo?.vbr || bestVideo?.tbr || 0) || null,
+          abr:      Math.round(bestAudio?.abr  || bestAudio?.tbr  || 0) || null,
+          filesize: totalSize || null,
+        }
       });
     } catch {
       res.status(500).json({ error: 'Parsing JSON échoué' });
@@ -160,6 +186,80 @@ app.get('/api/download', (req, res) => {
   });
 
   req.on('close', () => proc.kill());
+});
+
+// GET /api/update-ytdlp — mise à jour de yt-dlp.exe (Server-Sent Events)
+app.get('/api/update-ytdlp', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  const send = obj => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  // Helper : téléchargement HTTPS avec suivi de progression (suit les redirections)
+  function downloadFile(url, dest, onProgress) {
+    return new Promise((resolve, reject) => {
+      const follow = (u) => {
+        https.get(u, { headers: { 'User-Agent': 'ytdl-electron' } }, r => {
+          if (r.statusCode === 301 || r.statusCode === 302) {
+            return follow(r.headers.location);
+          }
+          if (r.statusCode !== 200) {
+            return reject(new Error(`HTTP ${r.statusCode}`));
+          }
+          const total = parseInt(r.headers['content-length'] || '0', 10);
+          let received = 0;
+          const file = fs.createWriteStream(dest);
+          r.on('data', chunk => {
+            received += chunk.length;
+            file.write(chunk);
+            if (total > 0 && onProgress) onProgress(Math.round(received / total * 100));
+          });
+          r.on('end',   () => { file.end(); resolve(); });
+          r.on('error', err => { file.destroy(); reject(err); });
+        }).on('error', reject);
+      };
+      follow(url);
+    });
+  }
+
+  (async () => {
+    const tmpPath = YTDLP_EXE + '.new';
+    try {
+      // 1. Version courante
+      let current = '?';
+      try { current = execSync(`"${YTDLP_EXE}" --version`, { encoding: 'utf8' }).trim(); } catch {}
+      send({ type: 'status', message: `Version actuelle : ${current}. Vérification de la dernière release…` });
+
+      // 2. Dernière release GitHub
+      const releaseData = await fetch(
+        'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest',
+        { headers: { 'User-Agent': 'ytdl-electron' } }
+      ).then(r => r.json());
+      const latest = releaseData.tag_name;
+      if (!latest) throw new Error('Impossible de récupérer la version GitHub');
+
+      if (current === latest) {
+        send({ type: 'uptodate', version: current });
+        res.end(); return;
+      }
+
+      // 3. Téléchargement
+      send({ type: 'status', message: `Mise à jour vers ${latest} en cours…` });
+      const dlUrl = `https://github.com/yt-dlp/yt-dlp/releases/download/${latest}/yt-dlp.exe`;
+      await downloadFile(dlUrl, tmpPath, pct => send({ type: 'progress', percent: pct }));
+
+      // 4. Remplacement
+      if (fs.existsSync(YTDLP_EXE)) fs.unlinkSync(YTDLP_EXE);
+      fs.renameSync(tmpPath, YTDLP_EXE);
+
+      send({ type: 'done', version: latest });
+    } catch (e) {
+      if (fs.existsSync(tmpPath)) try { fs.unlinkSync(tmpPath); } catch {}
+      send({ type: 'error', message: e.message });
+    }
+    res.end();
+  })();
 });
 
 // Démarrage du serveur — exporté pour Electron
